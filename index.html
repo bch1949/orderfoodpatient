@@ -334,6 +334,14 @@
     menuData = response.menuData;
     systemDietType = response.dietType; // บันทึกประเภทอาหารที่ได้จาก Sheet Room
 
+    // ====== โค้ดที่เพิ่มใหม่: นำ Note ล่าสุดมาใส่ในช่องอัตโนมัติ ======
+    if (response.previousNote) {
+        document.getElementById('allergies').value = response.previousNote;
+    } else {
+        document.getElementById('allergies').value = ""; // ล้างค่าเผื่อไม่มี Note
+    }
+    // =========================================================
+
     document.getElementById('displayRoom').innerHTML = `${urlRoom} <span class="text-th">(${religionTH} / ${systemDietType})</span><span class="text-en">(${religionEN})</span>`;
     document.getElementById('stickyRoomAlert').classList.remove('hidden');
     
