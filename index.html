@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ระบบสั่งอาหารผู้ป่วย / Patient Food Order</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  
+  <style>
+    body { background-color: #f4f7f6; font-family: 'Prompt', Tahoma, Geneva, Verdana, sans-serif; }
+    .card { border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 20px; border: none; }
+    .header-bg { background-color: #0d6efd; color: white; border-radius: 15px 15px 0 0; padding: 15px; }
+    .img-selector { width: 100%; height: 120px; object-fit: cover; border-radius: 10px; cursor: pointer; border: 3px solid transparent; transition: 0.2s; }
+    .img-selector:hover { opacity: 0.9; }
+    .img-selector.selected { border-color: #198754; opacity: 0.8; transform: scale(0.98); box-shadow: 0 0 10px rgba(25, 135, 84, 0.5); }
+    .bev-img { height: 80px; object-fit: cover; width: 100%; border-radius: 8px; border: 2px solid #ddd; transition: 0.2s; }
+    .bev-label:hover .bev-img { border-color: #0d6efd; transform: scale(1.05); }
+    .hidden { display: none !important; }
+    .lang-btn { cursor: pointer; border: 2px solid transparent; transition: 0.3s; }
+    .lang-btn.active { border-color: #fff; box-shadow: 0 0 5px rgba(0,0,0,0.3); transform: scale(1.1); }
+    body.th-active .text-en { display: none !important; }
+    body.en-active .text-th { display: none !important; }
+    .swal2-html-container, .swal2-title { font-family: 'Prompt', sans-serif !important; }
+  </style>
+</head>
+<body class="th-active">
+
+<div class="container mb-5" style="max-width: 600px; padding-top: 15px;">
+  
+  <div class="sticky-top pt-2 pb-2" style="background-color: #f4f7f6; z-index: 1020; margin-left: -10px; margin-right: -10px; padding-left: 10px; padding-right: 10px;">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h4 class="fw-bold text-primary mb-0" style="line-height: 1.4;">
+        <span class="text-th">ระบบสั่งอาหารผู้ป่วย</span><span class="text-en">Patient Food Order</span>
+        <div id="orderDayText" class="text-success hidden" style="font-size: 1.1rem;"></div>
+      </h4>
+      <div>
+        <span id="btn_th" class="lang-btn badge bg-primary active p-2" onclick="setLang('th')">TH</span>
+        <span id="btn_en" class="lang-btn badge bg-secondary p-2" onclick="setLang('en')">EN</span>
+      </div>
+    </div>
+    <div id="stickyRoomAlert" class="alert alert-info text-center shadow-sm py-2 mb-1 hidden" style="border: 2px solid #b6effb;">
+      <h6 class="mb-0 fw-bold text-primary">
+        <span class="text-th">ออร์เดอร์ห้อง: </span><span class="text-en">Order for Room: </span>
+        <span id="displayRoom" class="text-danger fs-5"></span>
+      </h6>
+    </div>
+  </div>
+
+  <div class="card mt-3" id="step1">
+    <div class="header-bg"><h5 class="mb-0 fw-semibold"><span class="text-th">ข้อมูลการสั่งอาหาร</span><span class="text-en">Order Information</span></h5></div>
+    <div class="card-body p-4">
+      
+      <div class="alert alert-secondary text-center mb-4 border-2">
+         <span class="text-th text-muted">หมายเลขห้อง</span><span class="text-en text-muted">Room Number</span><br>
+         <strong class="fs-3 text-dark" id="displayRoomStep1">-</strong>
+      </div>
+      
+      <div class="mb-3">
+        <label class="form-label fw-bold"><span class="text-th">ศาสนาผู้ป่วย</span><span class="text-en">Patient Religion</span></label>
+        <select class="form-select form-select-lg" id="religion">
+          <option value="คริสต์" data-en="Christianity">คริสต์ (Christianity)</option>
+          <option value="พุทธ" data-en="Buddhism">พุทธ (Buddhism)</option>
+          <option value="อิสลาม" data-en="Islam">อิสลาม (Islam)</option>
+          <option value="อื่นๆ/ไม่ระบุ" data-en="Other/None">อื่นๆ/ไม่ระบุ (Other/None)</option>
+        </select>
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-bold"><span class="text-th">สั่งอาหารสำหรับวันที่</span><span class="text-en">Order For</span></label>
+        <select class="form-select form-select-lg" id="orderDate"></select>
+      </div>
+      <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="checkAndLoadMenu()" id="btnCheck">
+        <span class="text-th">ตรวจสอบ & เลือกเมนู</span><span class="text-en">Check & Select Menu</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="step2" class="hidden">
+    <div class="card" id="section_bf">
+      <div class="header-bg bg-success">
+        <h5 class="mb-0 fw-semibold">
+          <span class="text-th">มื้อเช้า <span class="time-limit">(สั่งได้ก่อน 08:00 น.)</span></span>
+          <span class="text-en">Breakfast <span class="time-limit">(Order before 08:00 AM)</span></span>
+        </h5>
+      </div>
+      <div class="card-body">
+         <div class="form-check form-switch mb-3 pb-2 border-bottom">
+            <input class="form-check-input" type="checkbox" id="bf_custom_toggle" onchange="toggleCustom('bf')">
+            <label class="form-check-label text-danger fw-bold" for="bf_custom_toggle">
+              <span class="text-th">ระบุเมนูด้วยตนเอง</span><span class="text-en">Custom Menu</span>
+            </label>
+         </div>
+         <div id="bf_normal_zone">
+           <p class="text-muted"><span class="text-th">กรุณาเลือกรูปแบบอาหารเช้า 1 อย่าง</span><span class="text-en">Please select 1 breakfast style</span></p>
+           <div class="row text-center mb-3" id="bf_cards">
+              <div class="col-4" onclick="selectBfType(1)">
+                <img src="" class="img-selector" id="img_bf1">
+                <small class="d-block mt-1 fw-bold"><span class="text-th">ข้าวต้มเครื่อง</span><span class="text-en">Boiled Rice</span></small>
+              </div>
+              <div class="col-4" onclick="selectBfType(2)">
+                <img src="" class="img-selector" id="img_bf2">
+                <small class="d-block mt-1 fw-bold"><span class="text-th">ข้าวต้มขาว</span><span class="text-en">Plain Rice</span></small>
+              </div>
+              <div class="col-4" onclick="selectBfType(4)">
+                <img src="" class="img-selector" id="img_bf4">
+                <small class="d-block mt-1 fw-bold"><span class="text-th">อเมริกัน</span><span class="text-en">American</span></small>
+              </div>
+           </div>
+           <div id="bf_sub_menu" class="alert alert-secondary hidden"></div>
+         </div>
+         <input type="text" class="form-control mt-2 hidden" id="bf_custom">
+      </div>
+    </div>
+
+    <div class="card" id="section_lunch">
+       <div class="header-bg bg-warning text-dark">
+         <h5 class="mb-0 fw-semibold">
+           <span class="text-th">มื้อกลางวัน <span class="time-limit">(สั่งได้ก่อน 13:00 น.)</span></span>
+           <span class="text-en">Lunch <span class="time-limit">(Order before 01:00 PM)</span></span>
+         </h5>
+       </div>
+       <div class="card-body">
+         <div class="form-check form-switch mb-3 pb-2 border-bottom">
+            <input class="form-check-input" type="checkbox" id="lunch_custom_toggle" onchange="toggleCustom('lunch')">
+            <label class="form-check-label text-danger fw-bold" for="lunch_custom_toggle">
+              <span class="text-th">ระบุเมนูด้วยตนเอง</span><span class="text-en">Custom Menu</span>
+            </label>
+         </div>
+         <div id="lunch_normal_zone">
+           <p class="text-muted"><span class="text-th">กรุณาเลือกรูปแบบอาหารกลางวัน 1 อย่าง</span><span class="text-en">Please select 1 lunch style</span></p>
+           <div class="row text-center mb-3" id="lunch_cards">
+              <div class="col-6" onclick="selectLunchType(1)">
+                <img src="" class="img-selector" id="img_lunch1">
+                <small class="d-block mt-1 fw-bold"><span class="text-th" id="t_lunch1_th">เมนูประจำวัน</span><span class="text-en" id="t_lunch1_en">Daily Menu</span></small>
+              </div>
+              <div class="col-6" onclick="selectLunchType(2)">
+                <img src="" class="img-selector" id="img_lunch2">
+                <small class="d-block mt-1 fw-bold"><span class="text-th" id="t_lunch2_th">ข้าวสวย+กับข้าว</span><span class="text-en" id="t_lunch2_en">Rice & Sides</span></small>
+              </div>
+           </div>
+           <div id="lunch_sub_menu" class="alert alert-secondary hidden"></div>
+         </div>
+         <input type="text" class="form-control mt-2 hidden" id="lunch_custom">
+       </div>
+    </div>
+
+    <div class="card" id="section_dinner">
+       <div class="header-bg bg-info text-dark">
+         <h5 class="mb-0 fw-semibold">
+           <span class="text-th">มื้อเย็น <span class="time-limit">(สั่งได้ก่อน 17:00 น.)</span></span>
+           <span class="text-en">Dinner <span class="time-limit">(Order before 05:00 PM)</span></span>
+         </h5>
+       </div>
+       <div class="card-body">
+         <div class="form-check form-switch mb-3 pb-2 border-bottom">
+            <input class="form-check-input" type="checkbox" id="dinner_custom_toggle" onchange="toggleCustom('dinner')">
+            <label class="form-check-label text-danger fw-bold" for="dinner_custom_toggle">
+              <span class="text-th">ระบุเมนูด้วยตนเอง</span><span class="text-en">Custom Menu</span>
+            </label>
+         </div>
+         <div id="dinner_normal_zone">
+            <div id="dinner_menu_container"></div>
+         </div>
+         <input type="text" class="form-control mt-2 hidden" id="dinner_custom">
+       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body p-4">
+        <label class="form-label text-danger fw-bold"><span class="text-th">อาหารที่ควรงด / แพ้อาหาร / Note</span><span class="text-en">Food Allergies / Note</span></label>
+        <textarea class="form-control mb-4" id="allergies" rows="2"></textarea>
+        <button class="btn btn-success w-100 btn-lg fw-bold shadow" id="btnSubmit" onclick="prepareSubmit()">
+          <span class="text-th">ยืนยันการสั่งอาหาร</span><span class="text-en">Review & Submit Order</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // =========================================================
+  // 🔗 นำ URL Web App ของคุณที่ Deploy ได้จาก Apps Script มาวางตรงนี้!
+  // =========================================================
+  const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzE8YZi7qARJjiQTrmqJwjsECAqJCD1bMQH9kQM0lUnU3VOrVF6-TSsLvfAIA2D36OqeQ/exec"; 
+
+  let menuData = null; 
+  let selectedBfType = null;
+  let selectedLunchType = null;
+  let currentLang = 'th';
+  let urlRoom = ""; // เก็บค่าห้องจาก URL
+  let systemDietType = ""; // เก็บค่าประเภทอาหารที่ได้จากหลังบ้าน
+
+  window.onload = function() {
+    // 1. ดึงหมายเลขห้องจาก URL ?room=...
+    const urlParams = new URLSearchParams(window.location.search);
+    urlRoom = urlParams.get('room');
+    
+    if(!urlRoom) {
+      document.getElementById('displayRoomStep1').innerText = "ไม่พบหมายเลขห้องในลิงก์";
+      document.getElementById('displayRoomStep1').classList.add('text-danger');
+      document.getElementById('btnCheck').disabled = true;
+      Swal.fire({
+        icon: 'error',
+        title: 'ไม่พบหมายเลขห้อง',
+        text: 'กรุณาสแกน QR Code ประจำห้องใหม่อีกครั้ง หรือติดต่อเจ้าหน้าที่',
+        confirmButtonText: 'ตกลง'
+      });
+    } else {
+      document.getElementById('displayRoomStep1').innerText = urlRoom;
+    }
+
+    // 2. จัดการตัวเลือกวันที่ (ปรับให้ "พรุ่งนี้" ขึ้นก่อน)
+    const dateSelect = document.getElementById('orderDate');
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+    
+    // ใช้รูปแบบ ค.ศ. (DD/MM/YYYY)
+    const formatDate = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    
+    dateSelect.innerHTML = ''; 
+    
+    // --- สลับตำแหน่ง: เอา "พรุ่งนี้" ขึ้นก่อนเป็นลำดับที่ 1 ---
+    dateSelect.innerHTML += `<option value="${formatDate(tomorrow)}" data-istoday="false">พรุ่งนี้ (Tomorrow) - ${formatDate(tomorrow)}</option>`;
+
+    // --- ตรวจสอบเวลา: ถ้ายังไม่ถึง 17:00 น. ให้แสดงตัวเลือก "วันนี้" เป็นลำดับที่ 2 ---
+    const currentHour = today.getHours();
+    if(currentHour < 17) {
+        dateSelect.innerHTML += `<option value="${formatDate(today)}" data-istoday="true">วันนี้ (Today) - ${formatDate(today)}</option>`;
+    }
+  };
+
+  // ฟังก์ชันสื่อสารกับ Google Apps Script
+  async function callAPI(payload) {
+    try {
+      const response = await fetch(GAS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error(error);
+      return { success: false, message: "Network Error: ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้" };
+    }
+  }
+
+  function setLang(lang) {
+    currentLang = lang;
+    document.body.className = lang + '-active';
+    document.getElementById('btn_th').className = lang === 'th' ? 'lang-btn badge bg-primary active p-2' : 'lang-btn badge bg-secondary p-2';
+    document.getElementById('btn_en').className = lang === 'en' ? 'lang-btn badge bg-primary active p-2' : 'lang-btn badge bg-secondary p-2';
+    
+    document.getElementById('allergies').placeholder = lang === 'th' ? 'ถ้ามีโปรดระบุ...' : 'Specify if any allergies...';
+    document.getElementById('bf_custom').placeholder = lang === 'th' ? 'ระบุเมนูอาหารเช้าที่ต้องการ...' : 'Specify your breakfast...';
+    document.getElementById('lunch_custom').placeholder = lang === 'th' ? 'ระบุเมนูอาหารกลางวันที่ต้องการ...' : 'Specify your lunch...';
+    document.getElementById('dinner_custom').placeholder = lang === 'th' ? 'ระบุเมนูอาหารเย็นที่ต้องการ...' : 'Specify your dinner...';
+  }
+
+  function toggleCustom(meal) {
+    const isChecked = document.getElementById(meal + '_custom_toggle').checked;
+    const customInput = document.getElementById(meal + '_custom');
+    const normalZone = document.getElementById(meal + '_normal_zone');
+    if(isChecked) {
+        customInput.classList.remove('hidden'); normalZone.classList.add('hidden');
+    } else {
+        customInput.classList.add('hidden'); normalZone.classList.remove('hidden');
+    }
+  }
+
+  function limitCheckbox(className, maxAllowed) {
+    let checkboxes = document.querySelectorAll('.' + className);
+    let checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    checkboxes.forEach(cb => { if (!cb.checked) cb.disabled = (checkedCount >= maxAllowed); });
+  }
+
+  async function checkAndLoadMenu() {
+    if(!urlRoom) return;
+
+    const relSelect = document.getElementById('religion');
+    const religionTH = relSelect.value;
+    const religionEN = relSelect.options[relSelect.selectedIndex].getAttribute('data-en');
+    
+    const dateSelect = document.getElementById('orderDate');
+    const date = dateSelect.value;
+    const dayOfMonth = parseInt(date.substring(0, 2), 10);
+    const isToday = dateSelect.options[dateSelect.selectedIndex].getAttribute('data-istoday') === 'true';
+
+    Swal.fire({
+        title: currentLang === 'th' ? 'กำลังตรวจสอบสิทธิ์ห้อง...' : 'Checking Room...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+    });
+
+    let btn = document.getElementById('btnCheck');
+    btn.disabled = true;
+
+    // ยิง API ไปที่ GAS
+    const response = await callAPI({
+       action: "verifyAndGetMenu",
+       room: urlRoom,
+       orderDate: date,
+       dayOfMonth: dayOfMonth
+    });
+
+    Swal.close();
+
+    if (!response.success) {
+       Swal.fire('ปฏิเสธการเข้าถึง', response.message, 'error');
+       btn.disabled = false;
+       return;
+    }
+
+    if(response.isOrdered) {
+        const oldOrderHtml = `
+          <div class="text-start" style="font-size: 0.95rem; line-height: 1.6;">
+            <p class="text-danger fw-bold mb-2 text-center">
+              <span class="text-th">ห้อง ${urlRoom} สั่งอาหารของวันที่ ${date} ไปแล้ว</span><span class="text-en">Room ${urlRoom} already ordered for ${date}</span>
+            </p>
+            <div class="p-2 mb-2 bg-success text-white rounded"><strong><span class="text-th">มื้อเช้า:</span><span class="text-en">Breakfast:</span></strong> ${response.orderData.breakfast}</div>
+            <div class="p-2 mb-2 bg-light text-dark rounded border"><strong><span class="text-th">เครื่องดื่ม:</span><span class="text-en">Beverage:</span></strong> ${response.orderData.beverage}</div>
+            <div class="p-2 mb-2 bg-warning text-dark rounded"><strong><span class="text-th">มื้อกลางวัน:</span><span class="text-en">Lunch:</span></strong> ${response.orderData.lunch}</div>
+            <div class="p-2 mb-2 bg-info text-dark rounded"><strong><span class="text-th">มื้อเย็น:</span><span class="text-en">Dinner:</span></strong> ${response.orderData.dinner}</div>
+            <div class="p-2 mb-2 bg-danger text-white rounded"><strong><span class="text-th">Note:</span><span class="text-en">Note:</span></strong> ${response.orderData.note || '-'}</div>
+          </div>
+        `;
+        Swal.fire({ icon: 'error', title: currentLang === 'th' ? 'มีรายการสั่งอาหารแล้ว' : 'Order Exists', html: oldOrderHtml, confirmButtonText: 'OK' });
+        btn.disabled = false;
+        return;
+    }
+
+    // ผ่านฉลุย ดึงข้อมูลเมนูได้
+    menuData = response.menuData;
+    systemDietType = response.dietType; // บันทึกประเภทอาหารที่ได้จาก Sheet Room
+
+    document.getElementById('displayRoom').innerHTML = `${urlRoom} <span class="text-th">(${religionTH} / ${systemDietType})</span><span class="text-en">(${religionEN})</span>`;
+    document.getElementById('stickyRoomAlert').classList.remove('hidden');
+    
+    const orderDayDiv = document.getElementById('orderDayText');
+    const timeLimits = document.querySelectorAll('.time-limit');
+    
+    if (isToday) {
+        orderDayDiv.innerHTML = '<span class="text-th">👉 สำหรับวันนี้</span><span class="text-en">👉 For Today</span>';
+        timeLimits.forEach(el => el.classList.remove('hidden'));
+    } else {
+        orderDayDiv.innerHTML = '<span class="text-th">👉 สำหรับพรุ่งนี้</span><span class="text-en">👉 For Tomorrow</span>';
+        timeLimits.forEach(el => el.classList.add('hidden'));
+    }
+    orderDayDiv.classList.remove('hidden');
+
+    document.getElementById('section_bf').classList.remove('hidden');
+    document.getElementById('section_lunch').classList.remove('hidden');
+    document.getElementById('section_dinner').classList.remove('hidden');
+    
+    if(isToday) {
+        const currentHour = new Date().getHours();
+        if (currentHour >= 8) document.getElementById('section_bf').classList.add('hidden');
+        if (currentHour >= 13) document.getElementById('section_lunch').classList.add('hidden');
+        if (currentHour >= 17) document.getElementById('section_dinner').classList.add('hidden');
+    }
+
+    document.getElementById('step1').classList.add('hidden');
+    document.getElementById('step2').classList.remove('hidden');
+    renderMenus();
+  }
+
+  // --- ฟังก์ชัน renderMenus, selectBfType, selectLunchType ยกมาจากตัวเต็มได้เลยครับ เหมือนเดิม 100% ---
+  function renderMenus() {
+    if (!menuData) return;
+    let bfImgs = menuData.bf_img ? menuData.bf_img.toString().split(',') : [];
+    if(bfImgs[0]) document.getElementById('img_bf1').src = bfImgs[0].trim();
+    if(bfImgs[1]) document.getElementById('img_bf2').src = bfImgs[1].trim();
+    if(bfImgs[3]) document.getElementById('img_bf4').src = bfImgs[3].trim();
+
+    let lunchImgs = menuData.lunch_img ? menuData.lunch_img.toString().split(',') : [];
+    if(lunchImgs[0]) document.getElementById('img_lunch1').src = lunchImgs[0].trim();
+    if(lunchImgs[1]) document.getElementById('img_lunch2').src = lunchImgs[1].trim();
+    
+    let l_th_arr = menuData.lunch ? menuData.lunch.toString().split(',') : [];
+    let l_en_arr = menuData.lunch_en ? menuData.lunch_en.toString().split(',') : [];
+    document.getElementById('t_lunch1_th').innerText = l_th_arr[0] || 'เมนูประจำวัน';
+    document.getElementById('t_lunch1_en').innerText = l_en_arr[0] || 'Daily Menu';
+    document.getElementById('t_lunch2_th').innerText = l_th_arr[1] || 'ข้าวสวย+กับข้าว';
+    document.getElementById('t_lunch2_en').innerText = l_en_arr[1] || 'Rice & Sides';
+
+    let dinnerHtml = `<h6 class="text-primary fw-bold"><span class="text-th">${menuData.dinner}</span><span class="text-en">${menuData.dinner_en || ''}</span></h6>`;
+    if(menuData.dinner_img) dinnerHtml += `<img src="${menuData.dinner_img.trim()}" style="max-height:150px; border-radius:10px;" class="mb-3 w-100 object-fit-cover">`;
+    if (menuData.dinner_sides && menuData.dinner_sides.length > 0 && menuData.dinner_sides[0] !== "") {
+        dinnerHtml += `<p class="mt-2 fw-bold text-success"><span class="text-th">เลือกกับข้าว (เลือกได้สูงสุด 3 อย่าง)</span><span class="text-en">Choose side dishes (Max 3)</span></p>`;
+        menuData.dinner_sides.forEach((item, index) => {
+            let en_item = menuData.dinner_sides_en[index] || item; 
+            if(item.trim() !== "") {
+                dinnerHtml += `<div class="form-check mb-2">
+                    <input class="form-check-input dinner-cb" type="checkbox" value="${item}" id="dinner_${index}" onchange="limitCheckbox('dinner-cb', 3)">
+                    <label class="form-check-label" for="dinner_${index}">
+                        <span class="text-th">${item}</span><span class="text-en">${en_item}</span>
+                    </label></div>`;
+            }
+        });
+    }
+    document.getElementById('dinner_menu_container').innerHTML = dinnerHtml;
+  }
+
+  function selectBfType(type) {
+    document.querySelectorAll('#bf_cards .img-selector').forEach(el => el.classList.remove('selected'));
+    document.getElementById('img_bf' + type).classList.add('selected');
+    selectedBfType = type;
+    const subMenu = document.getElementById('bf_sub_menu');
+    subMenu.classList.remove('hidden');
+    let html = '';
+    
+    if (type === 1) { 
+        let bf_th = menuData.bf ? menuData.bf.split(',')[0] : '';
+        let bf_en = menuData.bf_en ? menuData.bf_en.split(',')[0] : '';
+        html += `<div class="alert alert-success p-2 mb-2 text-center"><span class="text-th fw-bold">เมนูวันนี้: ${bf_th}</span><span class="text-en fw-bold">Today's Menu: ${bf_en || bf_th}</span></div>`;
+    } else if (type === 2) { 
+        html += `<p class="text-primary fw-bold mb-2"><span class="text-th">เลือกกับข้าวต้ม (เลือกได้ 2 อย่าง)</span><span class="text-en">Choose 2 sides</span></p>`;
+        menuData.bf_sides.forEach((item, index) => {
+            let en_item = menuData.bf_sides_en[index] || item;
+            if(item.trim() !== "") {
+                html += `<div class="form-check"><input class="form-check-input bf-cb" type="checkbox" value="${item}" id="bf_side_${index}" onchange="limitCheckbox('bf-cb', 2)">
+                    <label class="form-check-label" for="bf_side_${index}"><span class="text-th">${item}</span><span class="text-en">${en_item}</span></label></div>`;
+            }
+        });
+    } else if (type === 4) { 
+        html += `<p class="text-primary fw-bold mb-2"><span class="text-th">เลือกเมนูอาหารเช้า (เลือก 1 อย่าง)</span><span class="text-en">Choose 1 breakfast</span></p>`;
+        menuData.abf_choices.forEach((item, index) => {
+            let en_item = menuData.abf_choices_en[index] || item;
+            if(item.trim() !== "") {
+                html += `<div class="form-check"><input class="form-check-input" type="radio" name="abf_radio" value="${item}" id="abf_${index}">
+                    <label class="form-check-label" for="abf_${index}"><span class="text-th">${item}</span><span class="text-en">${en_item}</span></label></div>`;
+            }
+        });
+    }
+    
+    html += `<hr><p class="text-primary fw-bold mb-2 mt-2"><span class="text-th">เลือกเครื่องดื่ม (เลือก 1 อย่าง)</span><span class="text-en">Choose 1 Beverage</span></p>`;
+    html += `<div class="row">`;
+    let bevImgs = menuData.bev_img ? menuData.bev_img.toString().split(',') : [];
+    
+    menuData.bev_choices.forEach((item, index) => {
+        let en_item = menuData.bev_choices_en[index] || item;
+        let imgSrc = bevImgs[index] ? bevImgs[index].trim() : 'https://placehold.co/150x150?text=No+Image';
+        if(item.trim() !== "") {
+            html += `
+            <div class="col-4 col-sm-3 mb-3 text-center">
+                <label class="bev-label d-block" style="cursor: pointer;">
+                    <img src="${imgSrc}" class="bev-img mb-1" onclick="document.getElementById('bev_${index}').checked = true;">
+                    <div class="form-check d-flex justify-content-center m-0">
+                        <input class="form-check-input me-1" type="radio" name="bev_radio" value="${item}" id="bev_${index}">
+                        <span style="font-size: 0.85rem;" class="fw-bold"><span class="text-th">${item}</span><span class="text-en">${en_item}</span></span>
+                    </div>
+                </label>
+            </div>`;
+        }
+    });
+    html += `</div>`;
+    subMenu.innerHTML = html;
+  }
+
+  function selectLunchType(type) {
+    document.querySelectorAll('#lunch_cards .img-selector').forEach(el => el.classList.remove('selected'));
+    document.getElementById('img_lunch' + type).classList.add('selected');
+    selectedLunchType = type;
+    const subMenu = document.getElementById('lunch_sub_menu');
+    subMenu.classList.remove('hidden');
+    let html = '';
+
+    if (type === 1) { 
+        let l_th = menuData.lunch ? menuData.lunch.split(',')[0] : '';
+        let l_en = menuData.lunch_en ? menuData.lunch_en.split(',')[0] : '';
+        html += `<div class="alert alert-success p-2 mb-0 text-center"><span class="text-th fw-bold">เมนูที่ได้รับ: ${l_th}</span><span class="text-en fw-bold">Menu: ${l_en || l_th}</span></div>`;
+    } else if (type === 2) { 
+        html += `<p class="text-primary fw-bold mb-2"><span class="text-th">เลือกกับข้าว (เลือกได้สูงสุด 3 อย่าง)</span><span class="text-en">Choose side dishes (Max 3)</span></p>`;
+        menuData.lunch_sides.forEach((item, index) => {
+            let en_item = menuData.lunch_sides_en[index] || item;
+            if(item.trim() !== "") {
+                html += `<div class="form-check"><input class="form-check-input lunch-cb" type="checkbox" value="${item}" id="lunch_side_${index}" onchange="limitCheckbox('lunch-cb', 3)">
+                    <label class="form-check-label" for="lunch_side_${index}"><span class="text-th">${item}</span><span class="text-en">${en_item}</span></label></div>`;
+            }
+        });
+    }
+    subMenu.innerHTML = html;
+  }
+
+  function getSelectedValues(className) {
+    let selected = [];
+    document.querySelectorAll('.' + className + ':checked').forEach(cb => selected.push(cb.value));
+    return selected.join(', ');
+  }
+
+  function prepareSubmit() {
+    let bf_data = "-", lunch_data = "-", dinner_data = "-", bev_data = "-";
+
+    if (!document.getElementById('section_bf').classList.contains('hidden')) {
+      if (document.getElementById('bf_custom_toggle').checked) bf_data = "(ระบุเอง) " + document.getElementById('bf_custom').value;
+      else {
+          if(!selectedBfType) bf_data = "- (ไม่ได้เลือก)";
+          else if(selectedBfType == 1) bf_data = menuData.bf.split(',')[0].trim();
+          else if(selectedBfType == 2) { let bf_choices = getSelectedValues('bf-cb'); bf_data = bf_choices ? "ข้าวต้มขาว (" + bf_choices + ")" : "ข้าวต้มขาว"; }
+          else if(selectedBfType == 4) { let abf = document.querySelector('input[name="abf_radio"]:checked'); bf_data = "อเมริกัน: " + (abf ? abf.value : ""); }
+      }
+      bev_data = document.querySelector('input[name="bev_radio"]:checked')?.value || '-';
+    } else { bf_data = "เลยเวลาสั่ง (Time out)"; bev_data = "เลยเวลาสั่ง (Time out)"; }
+
+    if (!document.getElementById('section_lunch').classList.contains('hidden')) {
+      if (document.getElementById('lunch_custom_toggle').checked) lunch_data = "(ระบุเอง) " + document.getElementById('lunch_custom').value;
+      else {
+          if(!selectedLunchType) lunch_data = "- (ไม่ได้เลือก)";
+          else if(selectedLunchType == 1) lunch_data = menuData.lunch.split(',')[0].trim();
+          else if(selectedLunchType == 2) { let base_lunch = menuData.lunch.split(',')[1] ? menuData.lunch.split(',')[1].trim() : "ข้าวสวย+กับข้าว"; let lunch_choices = getSelectedValues('lunch-cb'); lunch_data = lunch_choices ? base_lunch + " (" + lunch_choices + ")" : base_lunch; }
+      }
+    } else { lunch_data = "เลยเวลาสั่ง (Time out)"; }
+
+    if (!document.getElementById('section_dinner').classList.contains('hidden')) {
+      if (document.getElementById('dinner_custom_toggle').checked) dinner_data = "(ระบุเอง) " + document.getElementById('dinner_custom').value;
+      else { let base_dinner = menuData.dinner ? menuData.dinner.trim() : "ข้าวสวย+กับข้าว"; let dinner_choices = getSelectedValues('dinner-cb'); dinner_data = dinner_choices ? base_dinner + " (" + dinner_choices + ")" : base_dinner; }
+    } else { dinner_data = "เลยเวลาสั่ง (Time out)"; }
+
+    const relSelect = document.getElementById('religion');
+    const orderData = {
+      room: urlRoom,
+      religion: relSelect.value, 
+      dietType: systemDietType, // ส่งค่าประเภทอาหารกลับไปเซฟ
+      orderDate: document.getElementById('orderDate').value,
+      breakfast: bf_data, beverage: bev_data, lunch: lunch_data, dinner: dinner_data,
+      note: document.getElementById('allergies').value || '-'
+    };
+
+    const summaryHtml = `
+      <div class="text-start" style="font-size: 1rem; line-height: 1.6;">
+        <p class="mb-1"><strong><span class="text-th">ห้อง:</span><span class="text-en">Room:</span></strong> ${orderData.room} <span class="text-th">(${orderData.religion})</span><span class="text-en">(${relSelect.options[relSelect.selectedIndex].getAttribute('data-en')})</span></p>
+        <p class="mb-1 text-primary"><strong><span class="text-th">ประเภทอาหาร:</span><span class="text-en">Diet Type:</span></strong> ${orderData.dietType}</p>
+        <p class="mb-3"><strong><span class="text-th">วันที่:</span><span class="text-en">Date:</span></strong> ${orderData.orderDate}</p>
+        <div class="p-2 mb-2 bg-success text-white rounded"><strong><span class="text-th">มื้อเช้า:</span><span class="text-en">Breakfast:</span></strong> ${orderData.breakfast}</div>
+        <div class="p-2 mb-2 bg-light text-dark rounded border"><strong><span class="text-th">เครื่องดื่ม:</span><span class="text-en">Beverage:</span></strong> ${orderData.beverage}</div>
+        <div class="p-2 mb-2 bg-warning text-dark rounded"><strong><span class="text-th">กลางวัน:</span><span class="text-en">Lunch:</span></strong> ${orderData.lunch}</div>
+        <div class="p-2 mb-2 bg-info text-dark rounded"><strong><span class="text-th">มื้อเย็น:</span><span class="text-en">Dinner:</span></strong> ${orderData.dinner}</div>
+      </div>
+    `;
+
+    Swal.fire({
+      title: currentLang === 'th' ? 'ตรวจสอบรายการ' : 'Order Summary',
+      html: summaryHtml, icon: 'info', showCancelButton: true, confirmButtonColor: '#198754', cancelButtonColor: '#6c757d',
+      confirmButtonText: currentLang === 'th' ? 'ยืนยันสั่งอาหาร' : 'Confirm', cancelButtonText: currentLang === 'th' ? 'แก้ไข' : 'Edit'
+    }).then((result) => { if (result.isConfirmed) executeSubmit(orderData); });
+  }
+
+  async function executeSubmit(orderData) {
+    Swal.fire({ title: currentLang === 'th' ? 'กำลังบันทึก...' : 'Saving...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+
+    const response = await callAPI({ action: "submitOrder", orderData: orderData });
+    
+    if(response.success) {
+      Swal.fire({
+        icon: 'success', title: currentLang === 'th' ? 'บันทึกสำเร็จ!' : 'Success!',
+        text: currentLang === 'th' ? 'รายการอาหารของคุณถูกส่งเรียบร้อยแล้ว' : 'Your order has been submitted.',
+        confirmButtonText: 'OK'
+      }).then(() => {
+        document.getElementById('orderDayText').classList.add('hidden');
+        document.getElementById('stickyRoomAlert').classList.add('hidden');
+        document.getElementById('step2').classList.add('hidden');
+        document.getElementById('step1').classList.remove('hidden');
+        
+        document.getElementById('religion').selectedIndex = 0; document.getElementById('allergies').value = '';
+        document.getElementById('bf_custom_toggle').checked = false; document.getElementById('lunch_custom_toggle').checked = false; document.getElementById('dinner_custom_toggle').checked = false;
+        toggleCustom('bf'); toggleCustom('lunch'); toggleCustom('dinner');
+        
+        document.querySelectorAll('input[type="checkbox"], input[type="radio"]').forEach(el => el.checked = false);
+        document.querySelectorAll('.img-selector').forEach(el => el.classList.remove('selected'));
+        
+        document.getElementById('bf_sub_menu').innerHTML = ''; document.getElementById('bf_sub_menu').classList.add('hidden');
+        document.getElementById('lunch_sub_menu').innerHTML = ''; document.getElementById('lunch_sub_menu').classList.add('hidden');
+        document.getElementById('dinner_menu_container').innerHTML = '';
+        
+        document.getElementById('btnCheck').disabled = false;
+        menuData = null; selectedBfType = null; selectedLunchType = null;
+      });
+    } else {
+        Swal.fire('Error', response.message, 'error');
+    }
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
