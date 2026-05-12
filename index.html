@@ -619,7 +619,7 @@
   function showSettingsModal(rooms) {
     currentRoomsData = rooms;
     let html = `
-    <div class="table-responsive" style="max-height: 50vh; overflow-y: auto;">
+    <div class="table-responsive" id="modalTableContainer" style="max-height: 50vh; overflow-y: auto;">
       <table class="table table-bordered table-hover text-center align-middle" style="font-size: 0.95rem;">
         <thead class="table-primary sticky-top">
           <tr>
@@ -633,9 +633,16 @@
     `;
     
     rooms.forEach((r, idx) => {
+      // ตรวจสอบว่าเป็นห้องปัจจุบัน (urlRoom) หรือไม่
+      let isCurrentRoom = (r.room.toString() === urlRoom.toString());
+      
+      // ถ้าใช่ ให้ใส่คลาส table-warning (สีเหลือง) และเพิ่ม Badge แจ้งเตือน
+      let rowClass = isCurrentRoom ? 'table-warning border-warning' : '';
+      let badge = isCurrentRoom ? '<br><span class="badge bg-danger mt-1" style="font-size: 0.7rem;">ห้องนี้</span>' : '';
+
       html += `
-        <tr>
-          <td class="fw-bold text-primary">${r.room}</td>
+        <tr class="${rowClass}" id="row_${idx}">
+          <td class="fw-bold text-primary">${r.room} ${badge}</td>
           <td><input class="form-check-input border-secondary" type="checkbox" style="transform: scale(1.3);" id="norm_${idx}" ${r.normal ? 'checked' : ''} onchange="updateRoomData(${idx}, 'normal', this.checked)"></td>
           <td><input class="form-check-input border-secondary" type="checkbox" style="transform: scale(1.3);" id="soft_${idx}" ${r.soft ? 'checked' : ''} onchange="updateRoomData(${idx}, 'soft', this.checked)"></td>
           <td>
@@ -655,7 +662,20 @@
       showCancelButton: true,
       confirmButtonText: 'บันทึก (Save)',
       cancelButtonText: 'ปิด (Close)',
-      confirmButtonColor: '#198754'
+      confirmButtonColor: '#198754',
+      didOpen: () => {
+        // อัตโนมัติ: เลื่อน Scroll bar ไปที่แถวของห้องปัจจุบันทันทีที่เปิด Modal
+        const container = document.getElementById('modalTableContainer');
+        const currentRowIndex = rooms.findIndex(r => r.room.toString() === urlRoom.toString());
+        
+        if (currentRowIndex !== -1 && container) {
+          const rowElement = document.getElementById('row_' + currentRowIndex);
+          if(rowElement) {
+            // เลื่อนลงไปหา element นั้น (ลบออกนิดหน่อยเพื่อไม่ให้ชิดขอบบนเกินไป)
+            container.scrollTop = rowElement.offsetTop - container.offsetTop - 40;
+          }
+        }
+      }
     }).then((result) => {
       if (result.isConfirmed) saveRoomSettings();
     });
